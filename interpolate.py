@@ -8,6 +8,10 @@ import gppca
 from config import get_interpolation_config
 from integrate import generate_grid
 from derivative import dxdt
+import pickle
+import os
+import pandas as pd
+import equations
 
 
 def get_ode_data_noise_free(yt, x_id, dg, ode):
@@ -32,6 +36,7 @@ def get_ode_data_noise_free(yt, x_id, dg, ode):
 
     Xi = X_sample[:, :, x_id]
 
+
     c = (Xi * weight[:, None]).T @ g_dot
     ode_data = {
         'x_hat': X_sample,
@@ -45,14 +50,25 @@ def get_ode_data_noise_free(yt, x_id, dg, ode):
     return ode_data, X_ph, y_ph, t_new
 
 
-def get_ode_data(yt, x_id, dg, ode, config_n_basis=None, config_basis=None):
-    t = dg.solver.t
+def get_ode_data(yt, x_id, t, dg, ode, config_n_basis=None, config_basis=None,
+                env=1):
+    # t = dg.solver.t[:yt.shape[0]]
     noise_sigma = dg.noise_sigma
+    noise_sigma = noise_sigma + 1e-6
     freq = dg.freq
 
-    if noise_sigma == 0:
-        return get_ode_data_noise_free(yt, x_id, dg, ode)
-
+#     if noise_sigma == 0:
+#         return get_ode_data_noise_free(yt, x_id, dg, ode)
+    
+    # yt = np.repeat(yt, 2, axis=1)
+    # yt = yt.reshape(yt.shape[0], 1, yt.shape[-1])
+    # yt = yt.reshape(yt.shape[0], 1, yt.shape[-1])
+    # yt = yt.reshape(yt.shape[1], yt.shape[0], yt.shape[-1])
+    if isinstance(ode, equations.IpadODE):
+        yt = np.transpose(yt, (1,0,2))
+    else:
+        yt = yt.reshape(yt.shape[0], 1, yt.shape[-1])
+    # print(yt.shape)
     X_sample_list = list()
     pca_list = []
     # for each dimension
@@ -70,10 +86,15 @@ def get_ode_data(yt, x_id, dg, ode, config_n_basis=None, config_basis=None):
         else:
             sigma_in = config['sigma_in']
         freq_int = config['freq_int']
+#         print(config)
+#         print(yt.shape, t.shape, noise_sigma, freq)
+#         import pdb;pdb.set_trace()
 
         pca = gppca.GPPCA0(r, Y, t, noise_sigma, sigma_out=ode.std_base, sigma_in=sigma_in)
 
-        t_new, weight = generate_grid(dg.T, freq_int)
+#         t_new, weight = generate_grid(dg.T, freq_int)
+        t_new, weight = generate_grid(dg.T, freq)
+        
         X_sample = pca.get_predictive(new_sample=1, t_new=t_new)
         X_sample = X_sample.reshape(len(t_new), X_sample.size // len(t_new), 1)
         X_sample_list.append(X_sample)
@@ -99,7 +120,10 @@ def get_ode_data(yt, x_id, dg, ode, config_n_basis=None, config_basis=None):
     # compute c using a much larger grid
     t_new_c, weight_c = generate_grid(dg.T, 1000)
     g_dot = basis_func.design_matrix(t_new_c, derivative=True)
-    Xi = pca_list[x_id].get_predictive(new_sample=1, t_new=t_new_c)
+    try:
+        Xi = pca_list[x_id].get_predictive(new_sample=1, t_new=t_new_c)
+    except:
+        import pdb;pdb.set_trace()
     Xi = Xi.reshape(len(t_new_c), Xi.size // len(t_new_c))
     c = (Xi * weight_c[:, None]).T @ g_dot
 
@@ -109,6 +133,15 @@ def get_ode_data(yt, x_id, dg, ode, config_n_basis=None, config_basis=None):
         'c': c,
         'weights': weight
     }
+#     with open("data_test.pkl", "wb") as f:
+#         pickle.dump({
+#             "t_new": t_new,
+#             "yt": yt,
+#             "ode_data": ode_data,
+#             "dg": dg,
+#             "n_basis": n_basis,
+#             "weight_c": weight_c
+#         }, f)
     X_ph = np.zeros((X_sample.shape[1], X_sample.shape[2]))
     y_ph = np.zeros(X_sample.shape[1])
 

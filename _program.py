@@ -7,7 +7,7 @@ computer program. It is used for creating and evolving programs used in the
 Adapted from https://github.com/trevorstephens/gplearn
 """
 
-
+import pickle
 from copy import copy
 
 import numpy as np
@@ -495,6 +495,16 @@ class _Program(object):
         e1 = np.sum((c + c_hat) ** 2 * sample_weight[:, None]) / np.sum(sample_weight)
         e2 = np.sum((c + c_hat) ** 2 * sample_weight2[:, None]) / np.sum(sample_weight2)
 
+#         with open("data_test2.pkl", "wb") as f:
+#             pickle.dump({
+#                 "self": self,
+#                 "y_hat": y_hat,
+#                 "sample_weight": sample_weight,
+#                 "sample_weight2": sample_weight2,
+#                 "e1": e1,
+#                 "e2": e2,
+#             },f)
+#         raise
         return e1, e2
 
     def fitness(self, parsimony_coefficient=None):

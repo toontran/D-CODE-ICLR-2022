@@ -20,6 +20,7 @@ class GPPCA0:
         self.t = t
         self.sigma = sigma
         self.n_traj = Y.shape[1]
+        print(r, Y.shape, t.shape, sigma)
 
         if sigma_out is None:
             self.sigma_out = np.std(Y)

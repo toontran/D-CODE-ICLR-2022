@@ -10,6 +10,7 @@ Adapted from https://github.com/trevorstephens/gplearn
 import itertools
 from time import time
 from warnings import warn
+import pickle
 
 import numpy as np
 from joblib import Parallel, delayed
@@ -438,8 +439,10 @@ class SymbolicODE(BaseEstimator):
             for program in population:
                 program.fitness_ = program.fitness(parsimony_coefficient)
 
+            #print(f"saving gen {gen}")
             self._programs.append(population)
-
+            #with open(f"program_#{gen}", 'wb') as f:
+            #    pickle.dump(self._programs[gen], f)
             # Remove old programs that didn't make it into the new population.
             if not self.low_memory:
                 for old_gen in np.arange(gen, 0, -1):

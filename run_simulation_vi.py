@@ -56,7 +56,7 @@ def run(ode_name, ode_param, x_id, freq, n_sample, noise_ratio, seed, n_seed):
 
         with open(path, 'wb') as f:
             pickle.dump({
-                'model': est_gp._program,
+                'model': est_gp,
                 'ode_data': ode_data,
                 'seed': s,
                 'correct': correct,

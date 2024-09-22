@@ -1,3 +1,6 @@
 [submodule "tvregdiff"]
 	path = tvregdiff
 	url = https://github.com/ZhaozhiQIAN/tvregdiff
+[submodule "Invariant_Physics"]
+	path = Invariant_Physics
+	url = git@github.com:EnzeXu/Invariant_Physics.git

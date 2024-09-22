@@ -17,8 +17,10 @@ import abc
 #     'C': C,
 # }
 
-def get_ode(ode_name, param):
-    if ode_name == 'SineWave':
+def get_ode(ode_name, param, env=0, data=None):
+    if data is not None:
+        ode = IpadODE(param, data=data)
+    elif ode_name == 'SineWave':
         ode = SineWave(param)
     elif ode_name == 'VdpODE':
         ode = VdpODE(param)
@@ -31,9 +33,9 @@ def get_ode(ode_name, param):
     elif ode_name == 'HillODE':
         ode = HillODE(param)
     elif ode_name == 'SirODE':
-        ode = SirODE(param)
+        ode = SirODE(param, env=env)
     elif ode_name == 'LvODE':
-        ode = LvODE(param)
+        ode = LvODE(param, env=env)
     elif ode_name == 'ThetaModel':
         ode = ThetaModel(param)
     elif ode_name == 'LIF':
@@ -47,7 +49,7 @@ def get_ode(ode_name, param):
     elif ode_name == 'FHN':
         ode = FHN(param)
     elif ode_name == 'Lorenz':
-        ode = Lorenz(param)
+        ode = Lorenz(param, env=env)
     elif ode_name == 'FracODE':
         ode = FracODE(param)
     else:
@@ -87,8 +89,9 @@ def get_var_real():
 
 
 class ODE(metaclass=abc.ABCMeta):
-    def __init__(self, dim_x, param=None):
+    def __init__(self, dim_x, param=None, env=0):
         self.dim_x = dim_x
+        self.env = env
         self.has_coef = param is not None
         self.param = param if self.has_coef else self.get_default_param()
         self.T = 5
@@ -466,86 +469,6 @@ class HillODE(ODE):
         return new_ode.dx_dt_batch
 
 
-class SirODE(ODE):
-    """
-    SIR model
-    https://en.wikipedia.org/wiki/Compartmental_models_in_epidemiology
-    """
-
-    def __init__(self, param=None):
-        super().__init__(3, param)
-        self.b, self.k = self.param
-        self.init_high = [100., 0.01, 0.1]
-
-    def _dx_dt(self, x0, x1, x2):
-        dsdt = -1 * self.b * x0 * x1
-        didt = self.b * x0 * x1 - self.k * x1
-        drdt = self.k * x1
-        return [dsdt, didt, drdt]
-
-    def get_default_param(self):
-        return 1., 1.
-
-    def get_expression(self):
-        var_dict = self.get_var_dict()
-        X0 = var_dict['X0']
-        X1 = var_dict['X1']
-        C = var_dict['C']
-        if self.has_coef:
-            eq1 = -1 * C * X0 * X1
-            eq2 = C * X0 * X1 - C * X1
-            eq3 = C * X1
-        else:
-            eq1 = -1 * X0 * X1
-            eq2 = X0 * X1 - X1
-            eq3 = X1
-        return [eq1, eq2, eq3]
-
-    def functional_theta(self, theta):
-        assert len(theta) == 2
-        new_ode = SirODE(theta)
-        return new_ode.dx_dt_batch
-
-
-class LvODE(ODE):
-    """
-    Lotka-Volterra equations
-    https://en.wikipedia.org/wiki/Lotka-Volterra_equations
-    """
-
-    def __init__(self, param=None):
-        super().__init__(2, param)
-        self.a, self.c, self.gamma = self.param
-        self.init_high = 1.
-        self.T = 15
-
-    def _dx_dt(self, X, Y):
-        dxdt = self.a * X - self.a * X * Y
-        dydt = -1. * self.c * Y + self.gamma * X * Y
-        return [dxdt, dydt]
-
-    def get_default_param(self):
-        return 1., 1., 1
-
-    def get_expression(self):
-        var_dict = self.get_var_dict()
-        X0 = var_dict['X0']
-        X1 = var_dict['X1']
-        C = var_dict['C']
-        if self.has_coef:
-            eq1 = C * X0 - C * X0 * X1
-            eq2 = -1 * C * X1 + C * X0 * X1
-        else:
-            eq1 = X0 - X0 * X1
-            eq2 = -1 * X1 + X0 * X1
-        return [eq1, eq2]
-
-    def functional_theta(self, theta):
-        assert len(theta) == 3
-        new_ode = LvODE(theta)
-        return new_ode.dx_dt_batch
-
-
 class ThetaModel(ODE):
     """
     Theta model
@@ -712,7 +635,7 @@ class FracODE(ODE):
         return 1.
 
     def _dx_dt(self, x, y):
-        dxdt = x ** 2 / (y + self.rho)
+        dxdt = 1 / (y + self.rho) - x
         dydt = 1
         return [dxdt, dydt]
 
@@ -811,53 +734,6 @@ class FHN(ODE):
         return new_ode.dx_dt_batch
 
 
-class Lorenz(ODE):
-    """
-        Lorenz System
-    """
-    def __init__(self, param=None):
-        super().__init__(3, param)
-        self.sigma, self.rho, self.beta = self.param
-        self.T = 10
-        self.has_coef = True
-        self.init_high = 10
-        self.std_base = 8.55515291
-        self.name = 'Lorenz'
-        self.positive = False
-
-    def get_default_param(self):
-        return 10, 28, 8/3
-
-    def _dx_dt(self, x, y, z):
-        dxdt = self.sigma * (y - x)
-        dydt = x * (self.rho - z) - y
-        dzdt = x * y - self.beta * z
-        return [dxdt, dydt, dzdt]
-
-    def get_expression(self):
-        var_dict = self.get_var_dict()
-        X0 = var_dict['X0']
-        X1 = var_dict['X1']
-        X2 = var_dict['X2']
-        C = var_dict['C']
-
-        if self.has_coef:
-            eq1 = C * (X1 - X0)
-            eq2 = (X0 * (C - X2) - X1, X0*(C - X2) + X0 - X1,
-                   C*X0 - C*X1 - X0*X2, -C*X1 + X0*(C - X2) + X0, -C*X1 + X0*(C - X2) + C*X0)
-            eq3 = X0 * X1 - C * X2
-        else:
-            eq1 = X1 - X0
-            eq2 = -1. * X0 * X2 - X1
-            eq3 = X0 * X1 - X2
-        return [eq1, eq2, eq3]
-
-    def functional_theta(self, theta):
-        assert len(theta) == 3
-        new_ode = Lorenz(theta)
-        return new_ode.dx_dt_batch
-
-
 class RealODEPlaceHolder:
     def __init__(self):
         self.name = 'real'
@@ -877,7 +753,336 @@ class RealODEPlaceHolder:
         }
         return VarDict
 
+class SirODE(ODE):
+    """
+    "random_params_base": [0.010, 0.050],
+    "default_params_list": [
+        [0.010, 0.050],
+        [0.011, 0.040],
+        [0.012, 0.043],
+        [0.013, 0.045],
+        [0.014, 0.047],
+        [0.009, 0.060],
+        [0.008, 0.058],
+        [0.007, 0.056],
+        [0.014, 0.054],
+        [0.015, 0.052],
+    ],
+    "random_y0_base": [50.0, 40.0, 10.0],
+    "default_y0_list": [
+        [50.0, 40.0, 10.0],
+        [50.5, 41.0, 8.5],
+        [55.0, 40.0, 5.0],
+        [47.5, 48.5, 4.0],
+        [48.0, 49.0, 3.0],
+        [43.0, 51.0, 6.0],
+        [47.0, 46.0, 7.0],
+        [48.5, 43.5, 8.0],
+        [49.0, 42.0, 9.0],
+        [30.0, 55.0, 15.0],
+    ],
+    "truth_ode_format": [
+        "-{0}*x*y",
+        "{0}*x*y-{1}*y",
+        "{1}*y",
+    ]
+    dy = np.asarray([
+            - beta * x[0] * x[1],
+            beta * x[0] * x[1] - gamma * x[1],
+            gamma * x[1]
+        ])
+    SIR model
+    https://en.wikipedia.org/wiki/Compartmental_models_in_epidemiology
+    """
 
+    def __init__(self, param=None, env=0):
+        super().__init__(3, param, env)
+        self.b, self.k = self.param
+        self.init_high = 1.
+        self.T = 96
+        self.name = "SirODE"
+        self.has_coef = True
+        self.positive = False
+
+    def _dx_dt(self, x0, x1, x2):
+        dsdt = -1 * self.b * x0 * x1
+        didt = self.b * x0 * x1 - self.k * x1
+        drdt = self.k * x1
+        return [dsdt, didt, drdt]
+
+    def get_default_param(self):
+#         return 1., 1.
+        default_param = [[0.010, 0.050],
+                            [0.011, 0.040],
+                            [0.012, 0.043],
+                            [0.013, 0.045],
+                            [0.014, 0.047],]
+        return default_param[self.env]
+
+    def get_expression(self):
+        var_dict = self.get_var_dict()
+        X0 = var_dict['X0']
+        X1 = var_dict['X1']
+        C = var_dict['C']
+        if self.has_coef:
+            eq1 = (-1 * C * X0 * X1,
+                   -1 * C * X0 * X1+C,
+                  -1 * C * X0 * X1-C,
+                   C * X0 * X1,
+                  C * X0 * X1+C,
+                  C * X0 * X1-C)
+            eq2 = (C * X0 * X1 - C * X1,
+                   C * X0 * X1 - C * X1+C,
+                   C * X0 * X1 - C * X1-C,
+                  -1*C * X0 * X1 + C * X1,
+                  -1*C * X0 * X1 + C * X1+C,
+                  -1*C * X0 * X1 + C * X1-C,)
+            eq3 = (C * X1,
+                   C * X1+C,
+                   C * X1-C,
+                  -1*C * X1,
+                  -1*C * X1+C,
+                  -1*C * X1-C,)
+        else:
+            eq1 = -1 * X0 * X1
+            eq2 = X0 * X1 - X1
+            eq3 = X1
+        return [eq1, eq2, eq3]
+
+    def functional_theta(self, theta):
+        assert len(theta) == 2
+        new_ode = SirODE(theta)
+        return new_ode.dx_dt_batch
+    
+class LvODE(ODE):
+    """
+    "random_params_base": [1.00, 0.30, 3.00, 0.10],
+    "default_params_list": [
+        [1.00, 0.30, 3.00, 0.10],
+        [1.20, 0.39, 2.80, 0.09],
+        [1.30, 0.42, 3.20, 0.08],
+        [1.10, 0.51, 3.10, 0.11],
+        [0.90, 0.39, 2.90, 0.12],
+        [0.85, 0.35, 2.85, 0.13],
+        [1.15, 0.28, 3.30, 0.14],
+        [1.25, 0.40, 3.05, 0.07],
+        [0.95, 0.43, 2.65, 0.06],
+        [1.40, 0.26, 3.35, 0.15],
+    ],
+    "random_y0_base": [10.00, 5.00],
+    "default_y0_list": [
+        [10.00, 5.00],
+        [9.60, 4.30],
+        [10.10, 5.10],
+        [10.95, 4.85],
+        [8.90, 6.10],
+        [11.10, 5.45],
+        [8.75, 5.85],
+        [11.40, 4.95],
+        [10.05, 5.35],
+        [8.85, 5.20],
+    ],
+    "truth_ode_format": ["{0}*x-{1}*x*y", "{3}*x*y-{2}*y"],
+    alpha, beta, gamma, delta = iter(self.params[env_id])
+        dy = np.asarray([
+            alpha * x[0] - beta * x[0] * x[1],
+            delta * x[0] * x[1] - gamma * x[1],
+        ])
+    Lotka-Volterra equations
+    https://en.wikipedia.org/wiki/Lotka-Volterra_equations
+    """
+
+    def __init__(self, param=None, env=0):
+        super().__init__(2, param, env)
+#         self.a, self.c, self.gamma = self.param
+        self.alpha, self.beta, self.gamma, self.delta = self.param
+        self.init_high = 1.
+        self.T = 16
+        self.name = 'LvODE'
+        self.has_coef = True
+        self.positive = False
+
+    def _dx_dt(self, X, Y):
+#         dxdt = self.a * X - self.a * X * Y
+#         dydt = -1. * self.c * Y + self.gamma * X * Y
+        dxdt = self.alpha * X - self.beta * X * Y
+        dydt = -1. * self.gamma * Y + self.delta * X * Y
+        return [dxdt, dydt]
+
+    def get_default_param(self):
+#         return 1., 1., 1
+        default_params = [
+            [1.00, 0.30, 3.00, 0.10],
+            [1.20, 0.39, 2.80, 0.09],
+            [1.30, 0.42, 3.20, 0.08],
+            [1.10, 0.51, 3.10, 0.11],
+            [0.90, 0.39, 2.90, 0.12],
+        ]
+        return default_params[self.env]
+
+    def get_expression(self):
+        var_dict = self.get_var_dict()
+        X0 = var_dict['X0']
+        X1 = var_dict['X1']
+        C = var_dict['C']
+        if self.has_coef:
+            eq1 = (C * X0 - C * X0 * X1,
+                   C * X0 - C * X0 * X1+C,
+                   C * X0 - C * X0 * X1-C,
+                   -1*C * X0 + C * X0 * X1,
+                   -1*C * X0 + C * X0 * X1+C,
+                   -1*C * X0 + C * X0 * X1-C)
+            eq2 = (-1 * C * X1 + C * X0 * X1,
+                   -1 * C * X1 + C * X0 * X1+C,
+                   -1 * C * X1 + C * X0 * X1-C,
+                   C * X1 - C * X0 * X1,
+                  C * X1 - C * X0 * X1+C,
+                  C * X1 - C * X0 * X1-C,)
+        else:
+            eq1 = X0 - X0 * X1
+            eq2 = -1 * X1 + X0 * X1
+        return [eq1, eq2]
+
+    def functional_theta(self, theta):
+        assert len(theta) == 3
+        new_ode = LvODE(theta)
+        return new_ode.dx_dt_batch
+    
+    
+class Lorenz(ODE):
+    """
+    "random_params_base": [28.00, 10.00, 2.67],
+    "default_params_list": [
+        [28.00, 10.00, 2.67],
+        [13.00, 9.90, 2.70],
+        [15.00, 10.20, 2.74],
+        [14.00, 10.50, 2.54],
+        [19.00, 8.90, 3.00],
+        [24.00, 9.70, 2.84],
+        [18.00, 9.30, 2.60],
+        [25.00, 9.80, 2.67],
+        [17.00, 10.10, 2.76],
+        [15.50, 10.40, 2.61],
+    ],
+    "random_y0_base": [6.00, 6.00, 15.00],
+    "default_y0_list": [
+        [6.00, 6.00, 15.00],
+        [5.00, 7.00, 12.00],
+        [5.80, 6.30, 17.00],
+        [6.05, 6.40, 14.00],
+        [6.25, 6.50, 11.00],
+        [6.30, 6.10, 10.00],
+        [6.20, 6.80, 18.00],
+        [6.10, 6.90, 19.00],
+        [5.90, 6.60, 20.00],
+        [5.80, 5.80, 12.50],
+    ],
+    "truth_ode_format": [
+        "{1}*y-{1}*x",
+        "{0}*x-x*z-y",
+        "x*y-{2}*z",
+    ]
+    rho, sigma, beta = iter(self.params[env_id])
+        dy = np.asarray([
+            sigma * (x[1] - x[0]),
+            x[0] * (rho - x[2]) - x[1],
+            x[0] * x[1] - beta * x[2]
+        ])
+        Lorenz System
+    """
+    def __init__(self, param=None, env=0):
+        super().__init__(3, param, env)
+        self.rho, self.sigma, self.beta = self.param
+        self.T = 3
+        self.has_coef = True
+        self.init_high = 10
+        self.std_base = 8.55515291
+        self.name = 'Lorenz'
+        self.positive = False
+
+    def get_default_param(self):
+#         return 10, 28, 8/3
+        default_params = [
+            [28.00, 10.00, 2.67],
+            [13.00, 9.90, 2.70],
+            [15.00, 10.20, 2.74],
+            [14.00, 10.50, 2.54],
+            [19.00, 8.90, 3.00],
+        ]
+        print(default_params[self.env])
+        return default_params[self.env]
+
+    def _dx_dt(self, x, y, z):
+        dxdt = self.sigma * (y - x)
+        dydt = x * (self.rho - z) - y
+        dzdt = x * y - self.beta * z
+        return [dxdt, dydt, dzdt]
+
+    def get_expression(self):
+        var_dict = self.get_var_dict()
+        X0 = var_dict['X0']
+        X1 = var_dict['X1']
+        X2 = var_dict['X2']
+        C = var_dict['C']
+
+        if self.has_coef:
+            eq1 = C * (X1 - X0)
+            eq2 = (X0 * (C - X2) - X1, 
+                   X0*(C - X2) + X0 - X1,
+                   C*X0 - C*X1 - X0*X2, 
+                   -C*X1 + X0*(C - X2) + X0, 
+                   -C*X1 + X0*(C - X2) + C*X0)
+            eq3 = X0 * X1 - C * X2
+        else:
+            eq1 = X1 - X0
+            eq2 = -1. * X0 * X2 - X1
+            eq3 = X0 * X1 - X2
+        return [eq1, eq2, eq3]
+
+    def functional_theta(self, theta):
+        assert len(theta) == 3
+        new_ode = Lorenz(theta)
+        return new_ode.dx_dt_batch
+
+class IpadODE(ODE):
+    """
+    Placeholder for IPAD
+    """
+    def __init__(self, param=None, env=0, data=None):
+        super().__init__(3, param, env)
+        if not data:
+            raise Exception("Need to provide data")
+        # self.rho, self.sigma, self.beta = self.param
+        self.data = data
+        self.T = data['params_config']['t_max']
+        self.has_coef = True
+        self.init_high = -1
+        self.name = data['params_config']['task']
+        self.expression = data['params_config']['truth_ode_format']
+
+#     def get_default_param(self):
+# #         return 10, 28, 8/3
+#         default_params = [
+#             [28.00, 10.00, 2.67],
+#             [13.00, 9.90, 2.70],
+#             [15.00, 10.20, 2.74],
+#             [14.00, 10.50, 2.54],
+#             [19.00, 8.90, 3.00],
+#         ]
+#         print(default_params[self.env])
+#         return default_params[self.env]
+
+    def get_expression(self):
+        return self.expression
+
+    def _dx_dt(self, x, y, z):
+        return
+
+    def functional_theta(self, theta):
+        return
+
+    def get_default_param(self):
+        return
 
 # class Vortex(ODE):
 #     """
