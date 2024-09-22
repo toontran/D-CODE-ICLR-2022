@@ -8,3 +8,7 @@ pandas
 torch
 torchdiffeq
 git+https://github.com/ZhaozhiQIAN/gplearn
+gplearn
+git+https://github.com/EnzeXu/Invariant_Physics.git
+
+
