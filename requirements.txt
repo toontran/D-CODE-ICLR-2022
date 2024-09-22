@@ -8,6 +8,6 @@ pandas
 torch
 torchdiffeq
 git+https://github.com/ZhaozhiQIAN/gplearn
-gplearn
+gpytorch
 
 
