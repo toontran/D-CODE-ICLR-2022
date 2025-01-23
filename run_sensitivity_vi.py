@@ -86,10 +86,12 @@ def run(ode_name, ode_param, x_id, freq, n_sample, noise_ratio, seed, n_basis, b
     
     
     print("yt.shape", yt.shape)
+#     raise
     if ipad_data:
         t = ipad_data['t_series_list'][args.env]
     else:
         t = dg.solver.t[:yt.shape[0]]
+#     import 
     ode_data, X_ph, y_ph, t_new = get_ode_data(yt, x_id, t, dg, ode, n_basis, basis_obj,
                                               env = args.env)
 
@@ -119,6 +121,7 @@ def run(ode_name, ode_param, x_id, freq, n_sample, noise_ratio, seed, n_basis, b
         else:
             correct_list = [sympy.simplify(f_hat - f) == 0 for f in f_true]
             correct = max(correct_list) == 1
+            f_true = ';'.join([str(f) for f in f_true])
     print(f_hat, f_true)
 #         print(correct_list)
     # results/${ode}/noise-${noise}-seed-${seed}-env-${env}.txt

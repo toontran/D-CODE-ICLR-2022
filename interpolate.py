@@ -52,6 +52,10 @@ def get_ode_data_noise_free(yt, x_id, dg, ode):
 
 def get_ode_data(yt, x_id, t, dg, ode, config_n_basis=None, config_basis=None,
                 env=1):
+    # import matplotlib.pyplot as plt
+    # import matplotlib
+    # matplotlib.use('Agg')
+    
     # t = dg.solver.t[:yt.shape[0]]
     noise_sigma = dg.noise_sigma
     noise_sigma = noise_sigma + 1e-6
@@ -59,16 +63,27 @@ def get_ode_data(yt, x_id, t, dg, ode, config_n_basis=None, config_basis=None,
 
 #     if noise_sigma == 0:
 #         return get_ode_data_noise_free(yt, x_id, dg, ode)
+
+    # print(yt.shape)
+    # plt.figure(figsize=(12, 6))
+    # for traj in range(yt.shape[1]):
+    #     plt.plot(np.arange(yt.shape[0]), yt[:, traj])
+    # plt.savefig("figures/before.png")
+    # plt.close()
     
     # yt = np.repeat(yt, 2, axis=1)
     # yt = yt.reshape(yt.shape[0], 1, yt.shape[-1])
     # yt = yt.reshape(yt.shape[0], 1, yt.shape[-1])
     # yt = yt.reshape(yt.shape[1], yt.shape[0], yt.shape[-1])
+    
+    
     if isinstance(ode, equations.IpadODE):
         yt = np.transpose(yt, (1,0,2))
     else:
         yt = yt.reshape(yt.shape[0], 1, yt.shape[-1])
-    # print(yt.shape)
+    yt = np.repeat(yt, 2, axis=1)
+    print("yt.shape after", yt.shape)
+    #import pdb;pdb.set_trace()
     X_sample_list = list()
     pca_list = []
     # for each dimension
@@ -101,6 +116,13 @@ def get_ode_data(yt, x_id, t, dg, ode, config_n_basis=None, config_basis=None,
         pca_list.append(pca)
 
     X_sample = np.concatenate(X_sample_list, axis=-1)
+    
+    # plt.figure(figsize=(12, 6))
+    # for traj in range(X_sample.shape[1]):
+    #     plt.plot(np.arange(X_sample.shape[0]), X_sample[:, traj])
+    # plt.savefig("figures/after_gppca.png")
+    # plt.close()
+    
     # check smaller than zero
     if ode.positive:
         X_sample[X_sample <= 1e-6] = 1e-6
@@ -127,6 +149,14 @@ def get_ode_data(yt, x_id, t, dg, ode, config_n_basis=None, config_basis=None,
     Xi = Xi.reshape(len(t_new_c), Xi.size // len(t_new_c))
     c = (Xi * weight_c[:, None]).T @ g_dot
 
+    # plt.figure(figsize=(12, 6))
+    # for traj in range(Xi.shape[1]):
+    #     plt.plot(np.arange(Xi.shape[0]), Xi[:, traj])
+    # plt.savefig(f"figures/after_c_{x_id}.png")
+    # plt.close()
+
+    #print(X_sample.shape)
+    #import pdb;pdb.set_trace()
     ode_data = {
         'x_hat': X_sample,
         'g': g,
